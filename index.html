@@ -732,10 +732,6 @@ id: 1,
                     <h3 class="athlete-name">${athlete.name}</h3>
                     <span class="athlete-sport">${athlete.sport}</span>
                     <p class="athlete-bio">${athlete.shortBio}</p>
-                    <div class="olympic-highlight">
-                        <svg viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2 4v2h10V7H7zm0 4v2h10v-2H7zm0 4v2h7v-2H7z"/></svg>
-                        <span>${athlete.olympics}</span>
-                    </div>
                 </div>
             `;
             card.addEventListener('click', () => openModal(athlete));
