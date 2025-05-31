@@ -3,194 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Угадай 4-значный пароль</title>
+    <title>Диван РПГ: Таракан vs Пауки</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            background-color: #f5f5dc; /* цвет дивана */
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #game {
             margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-            background-color: #f5f5f5;
+            width: 300px;
+            position: relative;
         }
-        h1 {
-            color: #333;
-        }
-        .game-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .password-display {
+        #hero {
             font-size: 24px;
-            letter-spacing: 5px;
             margin: 20px 0;
-            min-height: 40px;
         }
-        input {
-            padding: 10px;
-            font-size: 18px;
-            width: 200px;
-            text-align: center;
-            margin: 10px 0;
+        #hero-value {
+            font-weight: bold;
+            color: #8B4513; /* коричневый */
+        }
+        #enemy {
+            margin: 20px 0;
+            font-size: 20px;
+            min-height: 60px;
+        }
+        #enemy.hidden {
+            opacity: 0;
         }
         button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
+            background-color: #FF4500; /* оранжевый */
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            color: white;
+            padding: 10px 20px;
             margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
         }
-        button:hover {
-            background-color: #45a049;
-        }
-        #newPasswordBtn {
-            background-color: #2196F3;
-        }
-        #newPasswordBtn:hover {
-            background-color: #0b7dda;
-        }
-        .attempts {
+        #stats {
             margin-top: 20px;
             text-align: left;
-        }
-        .message {
-            margin: 15px 0;
-            font-weight: bold;
-            min-height: 24px;
-        }
-        .correct {
-            color: green;
-        }
-        .incorrect {
-            color: red;
+            border-top: 1px dashed #000;
+            padding-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <h1>Угадай 4-значный пароль</h1>
-        
-        <button id="newPasswordBtn">Сгенерировать новый пароль</button>
-        
-        <div class="password-display" id="passwordDisplay">****</div>
-        
-        <div class="message" id="message"></div>
-        
-        <input type="text" id="guessInput" maxlength="4" placeholder="Введите 4 цифры">
-        
-        <button id="guessBtn">Проверить</button>
-        
-        <div class="attempts">
-            <p>Попытки: <span id="attemptCount">0</span></p>
-            <div id="attemptsList"></div>
+    <h1>Диван РПГ</h1>
+    <div id="game">
+        <div id="hero">
+            ТАРАКАН 🪳 (<span id="hero-value">1</span>)
+        </div>
+        <button id="attack-btn">УДАРИТЬ</button>
+        <div id="enemy" class="hidden">
+            Враг: <span id="enemy-name">Паук</span> 🕷️ (<span id="enemy-hp">0</span>)
+        </div>
+        <div id="stats">
+            <p>Убито врагов: <span id="kills">0</span></p>
+            <p>Сила удара: <span id="damage">1</span></p>
         </div>
     </div>
 
     <script>
-        // Глобальные переменные
-        let password = '';
-        let attempts = 0;
-        const maxAttempts = 10;
-        
+        // Игровые переменные
+        let heroPower = 1;
+        let kills = 0;
+        let damage = 1;
+        let currentEnemy = null;
+
+        // Враги
+        const enemies = [
+            { name: "Паук 🕷️", hp: 5 },
+            { name: "Муравей 🐜", hp: 3 },
+            { name: "Клоп 🪲", hp: 8 }
+        ];
+
         // Элементы DOM
-        const passwordDisplay = document.getElementById('passwordDisplay');
-        const guessInput = document.getElementById('guessInput');
-        const guessBtn = document.getElementById('guessBtn');
-        const newPasswordBtn = document.getElementById('newPasswordBtn');
-        const messageEl = document.getElementById('message');
-        const attemptCountEl = document.getElementById('attemptCount');
-        const attemptsListEl = document.getElementById('attemptsList');
-        
-        // Инициализация игры
-        function initGame() {
-            generatePassword();
-            attempts = 0;
-            updateDisplay();
-            messageEl.textContent = '';
-            attemptsListEl.innerHTML = '';
-            guessInput.value = '';
-            guessInput.focus();
+        const heroValueEl = document.getElementById('hero-value');
+        const attackBtn = document.getElementById('attack-btn');
+        const enemyEl = document.getElementById('enemy');
+        const enemyNameEl = document.getElementById('enemy-name');
+        const enemyHpEl = document.getElementById('enemy-hp');
+        const killsEl = document.getElementById('kills');
+        const damageEl = document.getElementById('damage');
+
+        // Создать нового врага
+        function spawnEnemy() {
+            currentEnemy = {...enemies[Math.floor(Math.random() * enemies.length)]};
+            enemyNameEl.textContent = currentEnemy.name;
+            enemyHpEl.textContent = currentEnemy.hp;
+            enemyEl.classList.remove('hidden');
         }
-        
-        // Генерация 4-значного пароля
-        function generatePassword() {
-            password = '';
-            for (let i = 0; i < 4; i++) {
-                password += Math.floor(Math.random() * 10);
+
+        // Атаковать врага
+        function attack() {
+            if (!currentEnemy) spawnEnemy();
+
+            currentEnemy.hp -= damage;
+            enemyHpEl.textContent = currentEnemy.hp;
+
+            if (currentEnemy.hp <= 0) {
+                kills++;
+                killsEl.textContent = kills;
+                heroPower++;
+                heroValueEl.textContent = heroPower;
+                enemyEl.classList.add('hidden');
+                setTimeout(spawnEnemy, 1000);
             }
-            console.log("Сгенерированный пароль (для тестирования):", password);
         }
-        
-        // Проверка догадки
-        function checkGuess() {
-            const guess = guessInput.value;
-            
-            // Проверка ввода
-            if (guess.length !== 4 || !/^\d+$/.test(guess)) {
-                messageEl.textContent = 'Пожалуйста, введите 4 цифры!';
-                messageEl.className = 'message incorrect';
-                return;
-            }
-            
-            attempts++;
-            updateDisplay();
-            
-            if (guess === password) {
-                // Правильный ответ
-                passwordDisplay.textContent = password;
-                messageEl.textContent = `Поздравляем! Вы угадали пароль за ${attempts} попыток!`;
-                messageEl.className = 'message correct';
-                guessBtn.disabled = true;
+
+        // Улучшение силы удара
+        function upgradeDamage() {
+            if (heroPower >= 10) {
+                heroPower -= 10;
+                damage += 1;
+                heroValueEl.textContent = heroPower;
+                damageEl.textContent = damage;
             } else {
-                // Неправильный ответ
-                let correctDigits = 0;
-                for (let i = 0; i < 4; i++) {
-                    if (guess[i] === password[i]) {
-                        correctDigits++;
-                    }
-                }
-                
-                messageEl.textContent = `Неверно! ${correctDigits} цифр(ы) на своих местах.`;
-                messageEl.className = 'message incorrect';
-                
-                // Добавляем попытку в список
-                const attemptEl = document.createElement('div');
-                attemptEl.textContent = `Попытка ${attempts}: ${guess} (${correctDigits} правильных)`;
-                attemptsListEl.appendChild(attemptEl);
-                
-                if (attempts >= maxAttempts) {
-                    messageEl.textContent = `Игра окончена! Пароль был: ${password}`;
-                    passwordDisplay.textContent = password;
-                    guessBtn.disabled = true;
-                }
+                alert("Нужно больше силы!");
             }
-            
-            guessInput.value = '';
-            guessInput.focus();
         }
-        
-        // Обновление отображения
-        function updateDisplay() {
-            attemptCountEl.textContent = attempts;
-        }
-        
-        // Обработчики событий
-        guessBtn.addEventListener('click', checkGuess);
-        newPasswordBtn.addEventListener('click', initGame);
-        
-        guessInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                checkGuess();
-            }
-        });
-        
+
+        // Назначение кнопок
+        attackBtn.addEventListener('click', attack);
+
         // Начало игры
-        initGame();
+        spawnEnemy();
     </script>
 </body>
 </html>
