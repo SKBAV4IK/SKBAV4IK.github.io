@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Диван РПГ: Хардкор</title>
+    <title>Диван РПГ: Прокачка и Способности</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #2c2c2c;
+            background-color: #1a1a1a;
             color: white;
             text-align: center;
             margin: 0;
             padding: 20px;
-            background-image: url('https://img.freepik.com/free-vector/dark-background-with-cracks_1048-6663.jpg');
+            background-image: url('https://img.freepik.com/free-photo/dark-sofa-with-pillows-living-room_53876-94852.jpg');
             background-size: cover;
+            background-attachment: fixed;
         }
         #game {
             margin: 0 auto;
             max-width: 500px;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.8);
             padding: 25px;
             border-radius: 15px;
             box-shadow: 0 0 30px rgba(255, 100, 0, 0.5);
@@ -48,7 +49,7 @@
             border: none;
             color: white;
             padding: 15px 30px;
-            margin: 15px;
+            margin: 10px;
             cursor: pointer;
             border-radius: 10px;
             font-size: 18px;
@@ -62,6 +63,10 @@
         }
         button:active {
             transform: scale(0.95);
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
         }
         #stats {
             margin-top: 25px;
@@ -101,6 +106,35 @@
             margin: 20px 0;
             text-shadow: 0 0 10px red;
         }
+        #abilities {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .ability {
+            background-color: #333;
+            border: 2px solid #FF4500;
+            border-radius: 10px;
+            padding: 10px;
+            width: 45%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ability:hover {
+            transform: scale(1.05);
+            background-color: #444;
+        }
+        .ability:active {
+            transform: scale(0.95);
+        }
+        .ability-cooldown {
+            height: 5px;
+            background-color: #FF4500;
+            width: 0%;
+            border-radius: 5px;
+            margin-top: 5px;
+            transition: width 1s linear;
+        }
         #crit-effect {
             position: absolute;
             font-size: 40px;
@@ -115,10 +149,18 @@
             50% { transform: scale(1.5); opacity: 1; }
             100% { transform: scale(1); opacity: 0; }
         }
+        .poison-effect {
+            color: #00FF00;
+            font-weight: bold;
+        }
+        .shield-active {
+            border: 2px solid #00BFFF !important;
+            box-shadow: 0 0 10px #00BFFF;
+        }
     </style>
 </head>
 <body>
-    <h1>🔥 ДИВАН РПГ: ХАРДКОР 🔥</h1>
+    <h1>🪳 ДИВАН РПГ: ПРОКАЧКА И СПОСОБНОСТИ 🪳</h1>
     <div id="game">
         <div id="game-over">ТЫ ПРОИГРАЛ! Уровень: <span id="final-level">1</span>. Убито: <span id="final-kills">0</span>.</div>
         <div id="hero">
@@ -127,23 +169,36 @@
         <div class="progress-bar">
             <div id="hero-health-bar" class="progress health-bar" style="width: 100%"></div>
         </div>
-        <p>❤️ HP: <span id="hero-hp">500</span>/500</p>
+        <p>❤️ HP: <span id="hero-hp">500</span>/<span id="hero-max-hp">500</span></p>
         
-        <button id="attack-btn">🔥 УДАРИТЬ</button>
+        <button id="attack-btn">🗡️ УДАРИТЬ</button>
         
         <div id="enemy" class="hidden">
             <div style="font-size: 30px; margin-bottom: 10px;"><span id="enemy-name">???</span></div>
             <div>HP: <span id="enemy-hp">0</span>/<span id="enemy-max-hp">0</span></div>
             <div>Урон: <span id="enemy-damage">0</span></div>
+            <div id="enemy-effects"></div>
         </div>
         <div class="progress-bar">
             <div id="enemy-health-bar" class="progress enemy-health-bar" style="width: 0%"></div>
         </div>
         
+        <div id="abilities">
+            <div id="shield-ability" class="ability">
+                🛡️ Щит (блок 1 атаки)
+                <div class="ability-cooldown" id="shield-cooldown"></div>
+            </div>
+            <div id="poison-ability" class="ability">
+                ☠️ Яд (3 урона/сек, 5 сек)
+                <div class="ability-cooldown" id="poison-cooldown"></div>
+            </div>
+        </div>
+        
         <div id="stats">
             <p>☠️ Убито: <span id="kills">0</span></p>
             <p>⚔️ Урон: <span id="damage">20</span> (<span id="crit-chance">15%</span> шанс крита)</p>
-            <p>📈 След. уровень: <span id="next-level">3</span></p>
+            <p>❤️ След. +HP через: <span id="next-hp">3</span></p>
+            <p>⚔️ След. +Урон через: <span id="next-damage">5</span></p>
             <p>💀 Сложность: <span id="difficulty">1</span>x</p>
         </div>
     </div>
@@ -160,33 +215,39 @@
         let critChance = 0.15;
         let critMultiplier = 2.5;
         let currentEnemy = null;
-        let killsToNextLevel = 3;
+        let killsToNextHp = 3;
+        let killsToNextDamage = 5;
         let isGameOver = false;
         let enemyAttackInterval = null;
         let enemyRegenInterval = null;
         let difficulty = 1;
+        let isShieldActive = false;
+        let poisonInterval = null;
+        let shieldCooldown = false;
+        let poisonCooldown = false;
 
-        // Враги (ХАРДКОРНЫЕ)
+        // Враги (хардкорные)
         const enemies = [
-            { name: "Паук-убийца 🕷️", hp: 150, damage: 10, attackSpeed: 2000 },
-            { name: "Муравей-берсерк 🐜", hp: 200, damage: 15, attackSpeed: 1800 },
-            { name: "Клоп-танк 🪲", hp: 300, damage: 20, attackSpeed: 2500 },
-            { name: "Жук-титан 🪰", hp: 400, damage: 30, attackSpeed: 2200 },
-            { name: "Оса-призрак 🐝", hp: 250, damage: 40, attackSpeed: 1500 },
-            { name: "Моль-тень 🦋", hp: 180, damage: 25, attackSpeed: 1700 },
-            { name: "Таракан-предатель 🪳", hp: 500, damage: 50, attackSpeed: 1900 }
+            { name: "Паук-убийца 🕷️", hp: 300, damage: 20, attackSpeed: 2000 },
+            { name: "Муравей-берсерк 🐜", hp: 400, damage: 25, attackSpeed: 1800 },
+            { name: "Клоп-танк 🪲", hp: 600, damage: 30, attackSpeed: 2500 },
+            { name: "Жук-титан 🪰", hp: 800, damage: 40, attackSpeed: 2200 },
+            { name: "Оса-призрак 🐝", hp: 500, damage: 50, attackSpeed: 1500 },
+            { name: "Моль-тень 🦋", hp: 350, damage: 35, attackSpeed: 1700 },
+            { name: "Таракан-предатель 🪳", hp: 1000, damage: 60, attackSpeed: 1900 }
         ];
 
         // Боссы (каждые 10 уровней)
         const bosses = [
-            { name: "БОСС: Паук-король 🕸️", hp: 1000, damage: 60, attackSpeed: 1600 },
-            { name: "БОСС: Муравей-император 👑", hp: 1500, damage: 80, attackSpeed: 1400 },
-            { name: "БОСС: Жук-бог 🦾", hp: 2000, damage: 100, attackSpeed: 1200 }
+            { name: "🔥 БОСС: Паук-король 🕸️", hp: 2000, damage: 80, attackSpeed: 1600 },
+            { name: "👑 БОСС: Муравей-император", hp: 3000, damage: 100, attackSpeed: 1400 },
+            { name: "💀 БОСС: Жук-бог 🦾", hp: 4000, damage: 120, attackSpeed: 1200 }
         ];
 
         // Элементы DOM
         const heroValueEl = document.getElementById('hero-value');
         const heroHpEl = document.getElementById('hero-hp');
+        const heroMaxHpEl = document.getElementById('hero-max-hp');
         const heroHealthBar = document.getElementById('hero-health-bar');
         const attackBtn = document.getElementById('attack-btn');
         const enemyEl = document.getElementById('enemy');
@@ -194,9 +255,11 @@
         const enemyHpEl = document.getElementById('enemy-hp');
         const enemyMaxHpEl = document.getElementById('enemy-max-hp');
         const enemyDamageEl = document.getElementById('enemy-damage');
+        const enemyEffectsEl = document.getElementById('enemy-effects');
         const killsEl = document.getElementById('kills');
         const damageEl = document.getElementById('damage');
-        const nextLevelEl = document.getElementById('next-level');
+        const nextHpEl = document.getElementById('next-hp');
+        const nextDamageEl = document.getElementById('next-damage');
         const enemyHealthBar = document.getElementById('enemy-health-bar');
         const gameOverEl = document.getElementById('game-over');
         const finalLevelEl = document.getElementById('final-level');
@@ -204,11 +267,17 @@
         const critEffectEl = document.getElementById('crit-effect');
         const critChanceEl = document.getElementById('crit-chance');
         const difficultyEl = document.getElementById('difficulty');
+        const shieldAbilityEl = document.getElementById('shield-ability');
+        const poisonAbilityEl = document.getElementById('poison-ability');
+        const shieldCooldownEl = document.getElementById('shield-cooldown');
+        const poisonCooldownEl = document.getElementById('poison-cooldown');
 
         // Создать нового врага
         function spawnEnemy() {
             clearInterval(enemyAttackInterval);
             clearInterval(enemyRegenInterval);
+            if (poisonInterval) clearInterval(poisonInterval);
+            enemyEffectsEl.innerHTML = '';
 
             let enemyPool = heroLevel % 10 === 0 ? bosses : enemies;
             let randomEnemy = enemyPool[Math.floor(Math.random() * enemyPool.length)];
@@ -218,7 +287,8 @@
                 hp: randomEnemy.hp * difficulty,
                 maxHp: randomEnemy.hp * difficulty,
                 damage: randomEnemy.damage * difficulty,
-                attackSpeed: randomEnemy.attackSpeed / difficulty
+                attackSpeed: randomEnemy.attackSpeed / difficulty,
+                isPoisoned: false
             };
 
             enemyNameEl.textContent = currentEnemy.name;
@@ -231,19 +301,24 @@
             // Враг атакует автоматически
             enemyAttackInterval = setInterval(() => {
                 if (!isGameOver && currentEnemy) {
-                    heroHp -= currentEnemy.damage;
-                    heroHpEl.textContent = heroHp > 0 ? heroHp : 0;
-                    heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
+                    if (isShieldActive) {
+                        isShieldActive = false;
+                        shieldAbilityEl.classList.remove('shield-active');
+                    } else {
+                        heroHp -= currentEnemy.damage;
+                        heroHpEl.textContent = heroHp > 0 ? heroHp : 0;
+                        heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
 
-                    if (heroHp <= 0) {
-                        gameOver();
+                        if (heroHp <= 0) {
+                            gameOver();
+                        }
                     }
                 }
             }, currentEnemy.attackSpeed);
 
             // Регенерация врага (если не бьют 5 секунд)
             enemyRegenInterval = setInterval(() => {
-                if (!isGameOver && currentEnemy) {
+                if (!isGameOver && currentEnemy && !currentEnemy.isPoisoned) {
                     currentEnemy.hp = Math.min(currentEnemy.hp + currentEnemy.maxHp * 0.05, currentEnemy.maxHp);
                     enemyHpEl.textContent = currentEnemy.hp;
                     enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
@@ -253,12 +328,7 @@
 
         // Атаковать врага
         function attack() {
-            if (isGameOver) return;
-            
-            if (!currentEnemy) {
-                spawnEnemy();
-                return;
-            }
+            if (isGameOver || !currentEnemy) return;
 
             // Проверка на крит
             let isCrit = Math.random() < critChance;
@@ -275,7 +345,7 @@
             // Сброс регенерации при ударе
             clearInterval(enemyRegenInterval);
             enemyRegenInterval = setInterval(() => {
-                if (!isGameOver && currentEnemy) {
+                if (!isGameOver && currentEnemy && !currentEnemy.isPoisoned) {
                     currentEnemy.hp = Math.min(currentEnemy.hp + currentEnemy.maxHp * 0.05, currentEnemy.maxHp);
                     enemyHpEl.textContent = currentEnemy.hp;
                     enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
@@ -291,28 +361,91 @@
                 difficulty = 1 + Math.floor(heroLevel / 5);
                 difficultyEl.textContent = difficulty;
 
-                // Проверка на новый уровень
-                if (kills >= killsToNextLevel) {
-                    heroLevel++;
-                    heroValueEl.textContent = heroLevel;
-                    killsToNextLevel += 3 + heroLevel;
-                    nextLevelEl.textContent = killsToNextLevel - kills;
-                    
-                    // Прокачка характеристик
-                    heroMaxHp += 50;
+                // Проверка на +HP
+                if (kills >= killsToNextHp) {
+                    heroMaxHp += 100;
                     heroHp = heroMaxHp;
                     heroHpEl.textContent = `${heroHp}/${heroMaxHp}`;
+                    heroMaxHpEl.textContent = heroMaxHp;
                     heroHealthBar.style.width = '100%';
-                    
-                    baseDamage += 10;
-                    damageEl.textContent = baseDamage;
+                    killsToNextHp += 3;
+                    nextHpEl.textContent = killsToNextHp - kills;
                 } else {
-                    nextLevelEl.textContent = killsToNextLevel - kills;
+                    nextHpEl.textContent = killsToNextHp - kills;
                 }
+
+                // Проверка на +Урон
+                if (kills >= killsToNextDamage) {
+                    baseDamage += 15;
+                    damageEl.textContent = baseDamage;
+                    killsToNextDamage += 5;
+                    nextDamageEl.textContent = killsToNextDamage - kills;
+                } else {
+                    nextDamageEl.textContent = killsToNextDamage - kills;
+                }
+
+                // Проверка на уровень (только за убийства)
+                heroLevel = 1 + Math.floor(kills / 10);
+                heroValueEl.textContent = heroLevel;
                 
                 enemyEl.classList.add('hidden');
                 setTimeout(spawnEnemy, 1000);
             }
+        }
+
+        // Способность: Щит
+        function useShield() {
+            if (shieldCooldown) return;
+            
+            isShieldActive = true;
+            shieldAbilityEl.classList.add('shield-active');
+            shieldCooldown = true;
+            shieldCooldownEl.style.width = '100%';
+            
+            setTimeout(() => {
+                shieldCooldownEl.style.width = '0%';
+            }, 15000);
+            
+            setTimeout(() => {
+                shieldCooldown = false;
+            }, 15000);
+        }
+
+        // Способность: Яд
+        function usePoison() {
+            if (poisonCooldown || !currentEnemy || currentEnemy.isPoisoned) return;
+            
+            currentEnemy.isPoisoned = true;
+            enemyEffectsEl.innerHTML = '<div class="poison-effect">☠️ ОТРАВЛЕН</div>';
+            poisonCooldown = true;
+            poisonCooldownEl.style.width = '100%';
+            
+            let poisonDuration = 5;
+            let poisonInterval = setInterval(() => {
+                if (!currentEnemy || currentEnemy.hp <= 0) {
+                    clearInterval(poisonInterval);
+                    return;
+                }
+                
+                currentEnemy.hp -= 3;
+                enemyHpEl.textContent = currentEnemy.hp > 0 ? currentEnemy.hp : 0;
+                enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
+                
+                poisonDuration--;
+                if (poisonDuration <= 0) {
+                    clearInterval(poisonInterval);
+                    currentEnemy.isPoisoned = false;
+                    enemyEffectsEl.innerHTML = '';
+                }
+            }, 1000);
+            
+            setTimeout(() => {
+                poisonCooldownEl.style.width = '0%';
+            }, 20000);
+            
+            setTimeout(() => {
+                poisonCooldown = false;
+            }, 20000);
         }
 
         // Показать эффект крита
@@ -334,10 +467,13 @@
             attackBtn.disabled = true;
             clearInterval(enemyAttackInterval);
             clearInterval(enemyRegenInterval);
+            if (poisonInterval) clearInterval(poisonInterval);
         }
 
         // Назначение кнопок
         attackBtn.addEventListener('click', attack);
+        shieldAbilityEl.addEventListener('click', useShield);
+        poisonAbilityEl.addEventListener('click', usePoison);
 
         // Начало игры
         spawnEnemy();
