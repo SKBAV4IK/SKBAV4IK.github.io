@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #f5e6cc; /* цвет дивана */
+            background-color: #f5e6cc;
             text-align: center;
             margin: 0;
             padding: 20px;
@@ -79,71 +79,100 @@
         .progress {
             height: 100%;
             background-color: #FF4500;
-            width: 0%;
+            width: 100%;
             transition: width 0.3s;
+        }
+        .health-bar {
+            background-color: #4CAF50;
+        }
+        .enemy-health-bar {
+            background-color: #FF0000;
         }
         h1 {
             color: #5a3921;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        #game-over {
+            display: none;
+            color: red;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
     <h1>🪳 ДИВАН РПГ: БИТВА ТАРАКАНА 🪳</h1>
     <div id="game">
+        <div id="game-over">ИГРА ОКОНЧЕНА! Обнови страницу.</div>
         <div id="hero">
             ТАРАКАН-ВОИН (<span id="hero-value">1</span> ур.)
         </div>
+        <div class="progress-bar">
+            <div id="hero-health-bar" class="progress health-bar"></div>
+        </div>
+        <p>❤️ HP: <span id="hero-hp">100</span>/100</p>
+        
         <button id="attack-btn">🗡️ УДАРИТЬ</button>
+        
         <div id="enemy" class="hidden">
             Враг: <span id="enemy-name">???</span> (<span id="enemy-hp">0</span> HP)
         </div>
         <div class="progress-bar">
-            <div id="enemy-health-bar" class="progress"></div>
+            <div id="enemy-health-bar" class="progress enemy-health-bar"></div>
         </div>
+        
         <div id="stats">
             <p>☠️ Убито: <span id="kills">0</span></p>
-            <p>⚔️ Урон: <span id="damage">1</span></p>
-            <p>🔋 След. улучшение урона через: <span id="next-upgrade">5</span></p>
+            <p>⚔️ Урон: <span id="damage">5</span></p>
+            <p>🔋 След. уровень через: <span id="next-level">3</span></p>
         </div>
     </div>
 
     <script>
         // Игровые переменные
         let heroLevel = 1;
+        let heroHp = 100;
+        let heroMaxHp = 100;
         let kills = 0;
-        let damage = 1;
+        let damage = 5;
         let currentEnemy = null;
-        let killsToNextUpgrade = 5;
+        let killsToNextLevel = 3;
+        let isGameOver = false;
 
-        // Враги (теперь с уровнями)
+        // Враги (теперь с уроном и большим HP)
         const enemies = [
-            { name: "Паук 🕷️", hp: 5 + Math.floor(Math.random() * 3) },
-            { name: "Муравей 🐜", hp: 3 + Math.floor(Math.random() * 2) },
-            { name: "Клоп 🪲", hp: 8 + Math.floor(Math.random() * 5) },
-            { name: "Жук-рогач 🪰", hp: 12 + Math.floor(Math.random() * 7) },
-            { name: "Оса 🐝", hp: 10 + Math.floor(Math.random() * 6) },
-            { name: "Моль 🦋", hp: 7 + Math.floor(Math.random() * 4) }
+            { name: "Паук 🕷️", hp: 20, damage: 3 },
+            { name: "Муравей 🐜", hp: 15, damage: 2 },
+            { name: "Клоп 🪲", hp: 30, damage: 5 },
+            { name: "Жук-рогач 🪰", hp: 40, damage: 8 },
+            { name: "Оса 🐝", hp: 25, damage: 10 },
+            { name: "Моль 🦋", hp: 18, damage: 4 },
+            { name: "Таракан-предатель 🪳", hp: 50, damage: 12 }
         ];
 
         // Элементы DOM
         const heroValueEl = document.getElementById('hero-value');
+        const heroHpEl = document.getElementById('hero-hp');
+        const heroHealthBar = document.getElementById('hero-health-bar');
         const attackBtn = document.getElementById('attack-btn');
         const enemyEl = document.getElementById('enemy');
         const enemyNameEl = document.getElementById('enemy-name');
         const enemyHpEl = document.getElementById('enemy-hp');
         const killsEl = document.getElementById('kills');
         const damageEl = document.getElementById('damage');
-        const nextUpgradeEl = document.getElementById('next-upgrade');
+        const nextLevelEl = document.getElementById('next-level');
         const enemyHealthBar = document.getElementById('enemy-health-bar');
+        const gameOverEl = document.getElementById('game-over');
 
         // Создать нового врага
         function spawnEnemy() {
             const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
             currentEnemy = {
                 name: randomEnemy.name,
-                hp: randomEnemy.hp + Math.floor(heroLevel / 3), // Чем выше уровень, тем сложнее враги
-                maxHp: randomEnemy.hp + Math.floor(heroLevel / 3)
+                hp: randomEnemy.hp + heroLevel * 2, // Чем выше уровень, тем сложнее враги
+                maxHp: randomEnemy.hp + heroLevel * 2,
+                damage: randomEnemy.damage + Math.floor(heroLevel / 2)
             };
             
             enemyNameEl.textContent = currentEnemy.name;
@@ -154,38 +183,64 @@
 
         // Атаковать врага
         function attack() {
+            if (isGameOver) return;
+            
             if (!currentEnemy) {
                 spawnEnemy();
-                return; // Важно: без этого был баг с прокачкой!
+                return;
             }
 
+            // Игрок атакует
             currentEnemy.hp -= damage;
-            enemyHpEl.textContent = currentEnemy.hp;
+            enemyHpEl.textContent = currentEnemy.hp > 0 ? currentEnemy.hp : 0;
             enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
 
+            // Проверка на смерть врага
             if (currentEnemy.hp <= 0) {
                 kills++;
                 killsEl.textContent = kills;
-                heroLevel++;
-                heroValueEl.textContent = heroLevel;
-                enemyEl.classList.add('hidden');
                 
-                // Улучшение урона каждые 5 убийств
-                if (kills >= killsToNextUpgrade) {
-                    damage += 1;
-                    killsToNextUpgrade += 5;
-                    damageEl.textContent = damage;
-                    nextUpgradeEl.textContent = killsToNextUpgrade - kills;
+                // Проверка на новый уровень
+                if (kills >= killsToNextLevel) {
+                    heroLevel++;
+                    heroValueEl.textContent = heroLevel;
+                    killsToNextLevel += 3;
+                    nextLevelEl.textContent = killsToNextLevel - kills;
                     
-                    // Анимация улучшения
-                    damageEl.style.transform = 'scale(1.3)';
-                    setTimeout(() => { damageEl.style.transform = 'scale(1)'; }, 300);
+                    // Увеличение HP и урона
+                    heroMaxHp += 10;
+                    heroHp = heroMaxHp;
+                    heroHpEl.textContent = `${heroHp}/${heroMaxHp}`;
+                    heroHealthBar.style.width = '100%';
+                    
+                    damage += 2;
+                    damageEl.textContent = damage;
                 } else {
-                    nextUpgradeEl.textContent = killsToNextUpgrade - kills;
+                    nextLevelEl.textContent = killsToNextLevel - kills;
                 }
                 
-                setTimeout(spawnEnemy, 800);
+                enemyEl.classList.add('hidden');
+                setTimeout(spawnEnemy, 1000);
+                return;
             }
+
+            // Враг атакует в ответ
+            setTimeout(() => {
+                heroHp -= currentEnemy.damage;
+                heroHpEl.textContent = `${heroHp > 0 ? heroHp : 0}/${heroMaxHp}`;
+                heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
+                
+                if (heroHp <= 0) {
+                    gameOver();
+                }
+            }, 300);
+        }
+
+        // Конец игры
+        function gameOver() {
+            isGameOver = true;
+            gameOverEl.style.display = 'block';
+            attackBtn.disabled = true;
         }
 
         // Назначение кнопок
