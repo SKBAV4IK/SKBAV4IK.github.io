@@ -3,81 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Диван РПГ: Таракан vs Пауки</title>
+    <title>Диван РПГ: Таракан vs Мир</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5dc; /* цвет дивана */
+            font-family: 'Arial', sans-serif;
+            background-color: #f5e6cc; /* цвет дивана */
             text-align: center;
             margin: 0;
             padding: 20px;
+            background-image: url('https://img.freepik.com/free-vector/realistic-soft-textured-velvet-fabric-background_53876-99531.jpg');
+            background-size: cover;
         }
         #game {
             margin: 0 auto;
-            width: 300px;
-            position: relative;
+            max-width: 400px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            border: 3px solid #8B4513;
         }
         #hero {
-            font-size: 24px;
+            font-size: 28px;
             margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
         #hero-value {
             font-weight: bold;
-            color: #8B4513; /* коричневый */
+            color: #8B4513;
         }
         #enemy {
             margin: 20px 0;
-            font-size: 20px;
-            min-height: 60px;
+            font-size: 22px;
+            min-height: 80px;
+            transition: all 0.3s;
         }
         #enemy.hidden {
             opacity: 0;
+            transform: scale(0.9);
         }
         button {
-            background-color: #FF4500; /* оранжевый */
+            background-color: #FF4500;
             border: none;
             color: white;
-            padding: 10px 20px;
-            margin: 5px;
+            padding: 12px 25px;
+            margin: 10px;
             cursor: pointer;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        button:hover {
+            transform: scale(1.05);
+            background-color: #FF6347;
+        }
+        button:active {
+            transform: scale(0.95);
         }
         #stats {
             margin-top: 20px;
             text-align: left;
-            border-top: 1px dashed #000;
-            padding-top: 10px;
+            border-top: 2px dashed #8B4513;
+            padding-top: 15px;
+            font-size: 16px;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #FF4500;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        h1 {
+            color: #5a3921;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
 <body>
-    <h1>Диван РПГ</h1>
+    <h1>🪳 ДИВАН РПГ: БИТВА ТАРАКАНА 🪳</h1>
     <div id="game">
         <div id="hero">
-            ТАРАКАН 🪳 (<span id="hero-value">1</span>)
+            ТАРАКАН-ВОИН (<span id="hero-value">1</span> ур.)
         </div>
-        <button id="attack-btn">УДАРИТЬ</button>
+        <button id="attack-btn">🗡️ УДАРИТЬ</button>
         <div id="enemy" class="hidden">
-            Враг: <span id="enemy-name">Паук</span> 🕷️ (<span id="enemy-hp">0</span>)
+            Враг: <span id="enemy-name">???</span> (<span id="enemy-hp">0</span> HP)
+        </div>
+        <div class="progress-bar">
+            <div id="enemy-health-bar" class="progress"></div>
         </div>
         <div id="stats">
-            <p>Убито врагов: <span id="kills">0</span></p>
-            <p>Сила удара: <span id="damage">1</span></p>
+            <p>☠️ Убито: <span id="kills">0</span></p>
+            <p>⚔️ Урон: <span id="damage">1</span></p>
+            <p>🔋 След. улучшение урона через: <span id="next-upgrade">5</span></p>
         </div>
     </div>
 
     <script>
         // Игровые переменные
-        let heroPower = 1;
+        let heroLevel = 1;
         let kills = 0;
         let damage = 1;
         let currentEnemy = null;
+        let killsToNextUpgrade = 5;
 
-        // Враги
+        // Враги (теперь с уровнями)
         const enemies = [
-            { name: "Паук 🕷️", hp: 5 },
-            { name: "Муравей 🐜", hp: 3 },
-            { name: "Клоп 🪲", hp: 8 }
+            { name: "Паук 🕷️", hp: 5 + Math.floor(Math.random() * 3) },
+            { name: "Муравей 🐜", hp: 3 + Math.floor(Math.random() * 2) },
+            { name: "Клоп 🪲", hp: 8 + Math.floor(Math.random() * 5) },
+            { name: "Жук-рогач 🪰", hp: 12 + Math.floor(Math.random() * 7) },
+            { name: "Оса 🐝", hp: 10 + Math.floor(Math.random() * 6) },
+            { name: "Моль 🦋", hp: 7 + Math.floor(Math.random() * 4) }
         ];
 
         // Элементы DOM
@@ -88,41 +134,57 @@
         const enemyHpEl = document.getElementById('enemy-hp');
         const killsEl = document.getElementById('kills');
         const damageEl = document.getElementById('damage');
+        const nextUpgradeEl = document.getElementById('next-upgrade');
+        const enemyHealthBar = document.getElementById('enemy-health-bar');
 
         // Создать нового врага
         function spawnEnemy() {
-            currentEnemy = {...enemies[Math.floor(Math.random() * enemies.length)]};
+            const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+            currentEnemy = {
+                name: randomEnemy.name,
+                hp: randomEnemy.hp + Math.floor(heroLevel / 3), // Чем выше уровень, тем сложнее враги
+                maxHp: randomEnemy.hp + Math.floor(heroLevel / 3)
+            };
+            
             enemyNameEl.textContent = currentEnemy.name;
             enemyHpEl.textContent = currentEnemy.hp;
+            enemyHealthBar.style.width = '100%';
             enemyEl.classList.remove('hidden');
         }
 
         // Атаковать врага
         function attack() {
-            if (!currentEnemy) spawnEnemy();
+            if (!currentEnemy) {
+                spawnEnemy();
+                return; // Важно: без этого был баг с прокачкой!
+            }
 
             currentEnemy.hp -= damage;
             enemyHpEl.textContent = currentEnemy.hp;
+            enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
 
             if (currentEnemy.hp <= 0) {
                 kills++;
                 killsEl.textContent = kills;
-                heroPower++;
-                heroValueEl.textContent = heroPower;
+                heroLevel++;
+                heroValueEl.textContent = heroLevel;
                 enemyEl.classList.add('hidden');
-                setTimeout(spawnEnemy, 1000);
-            }
-        }
-
-        // Улучшение силы удара
-        function upgradeDamage() {
-            if (heroPower >= 10) {
-                heroPower -= 10;
-                damage += 1;
-                heroValueEl.textContent = heroPower;
-                damageEl.textContent = damage;
-            } else {
-                alert("Нужно больше силы!");
+                
+                // Улучшение урона каждые 5 убийств
+                if (kills >= killsToNextUpgrade) {
+                    damage += 1;
+                    killsToNextUpgrade += 5;
+                    damageEl.textContent = damage;
+                    nextUpgradeEl.textContent = killsToNextUpgrade - kills;
+                    
+                    // Анимация улучшения
+                    damageEl.style.transform = 'scale(1.3)';
+                    setTimeout(() => { damageEl.style.transform = 'scale(1)'; }, 300);
+                } else {
+                    nextUpgradeEl.textContent = killsToNextUpgrade - kills;
+                }
+                
+                setTimeout(spawnEnemy, 800);
             }
         }
 
