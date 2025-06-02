@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Диван РПГ: Прокачка и Способности</title>
+    <title>Диван РПГ: Наказания и Мини-игры</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -24,6 +24,7 @@
             border-radius: 15px;
             box-shadow: 0 0 30px rgba(255, 100, 0, 0.5);
             border: 3px solid #FF4500;
+            position: relative;
         }
         #hero {
             font-size: 32px;
@@ -157,11 +158,62 @@
             border: 2px solid #00BFFF !important;
             box-shadow: 0 0 10px #00BFFF;
         }
+        #combo-counter {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: gold;
+            text-shadow: 0 0 5px black;
+        }
+        #mini-game {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 100;
+        }
+        #mini-game-container {
+            position: relative;
+            width: 300px;
+            height: 400px;
+            margin: 50px auto;
+            background-color: #333;
+            border: 3px solid #FF4500;
+            border-radius: 15px;
+            padding: 20px;
+        }
+        .crumb {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-image: url('https://cdn-icons-png.flaticon.com/512/2829/2829733.png');
+            background-size: contain;
+            cursor: pointer;
+        }
+        #miss-effect {
+            position: absolute;
+            font-size: 30px;
+            color: red;
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            animation: miss-anim 1s;
+        }
+        @keyframes miss-anim {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
     </style>
 </head>
 <body>
-    <h1>🪳 ДИВАН РПГ: ПРОКАЧКА И СПОСОБНОСТИ 🪳</h1>
+    <h1>🪳 ДИВАН РПГ: НАКАЗАНИЯ И МИНИ-ИГРЫ 🪳</h1>
     <div id="game">
+        <div id="combo-counter">Комбо: 0x</div>
         <div id="game-over">ТЫ ПРОИГРАЛ! Уровень: <span id="final-level">1</span>. Убито: <span id="final-kills">0</span>.</div>
         <div id="hero">
             ТАРАКАН-ЛЕГЕНДА (<span id="hero-value">1</span> ур.)
@@ -200,10 +252,22 @@
             <p>❤️ След. +HP через: <span id="next-hp">3</span></p>
             <p>⚔️ След. +Урон через: <span id="next-damage">5</span></p>
             <p>💀 Сложность: <span id="difficulty">1</span>x</p>
+            <p>🍪 Крошки: <span id="crumbs">0</span></p>
+        </div>
+    </div>
+
+    <div id="mini-game">
+        <div id="mini-game-container">
+            <h2>🍪 ЛОВИ КРОШКИ!</h2>
+            <p>Поймай 10 крошек за 15 секунд</p>
+            <p>Осталось: <span id="time-left">15</span> сек</p>
+            <p>Поймано: <span id="crumbs-caught">0</span>/10</p>
+            <div id="mini-game-area" style="position: relative; width: 100%; height: 300px; margin-top: 20px; border: 2px dashed #FF4500;"></div>
         </div>
     </div>
 
     <div id="crit-effect">КРИТ!</div>
+    <div id="miss-effect">ПРОМАХ! -HP</div>
 
     <script>
         // Игровые переменные
@@ -225,6 +289,12 @@
         let poisonInterval = null;
         let shieldCooldown = false;
         let poisonCooldown = false;
+        let combo = 0;
+        let comboTimeout = null;
+        let crumbs = 0;
+        let miniGameActive = false;
+        let crumbsCaught = 0;
+        let miniGameTimer = null;
 
         // Враги (хардкорные)
         const enemies = [
@@ -271,6 +341,54 @@
         const poisonAbilityEl = document.getElementById('poison-ability');
         const shieldCooldownEl = document.getElementById('shield-cooldown');
         const poisonCooldownEl = document.getElementById('poison-cooldown');
+        const comboCounterEl = document.getElementById('combo-counter');
+        const miniGameEl = document.getElementById('mini-game');
+        const miniGameAreaEl = document.getElementById('mini-game-area');
+        const timeLeftEl = document.getElementById('time-left');
+        const crumbsCaughtEl = document.getElementById('crumbs-caught');
+        const crumbsEl = document.getElementById('crumbs');
+        const missEffectEl = document.getElementById('miss-effect');
+
+        // Наказание за удар без врага
+        function punishPlayer() {
+            // -10% HP
+            const damageTaken = Math.floor(heroMaxHp * 0.1);
+            heroHp = Math.max(1, heroHp - damageTaken);
+            heroHpEl.textContent = heroHp;
+            heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
+            
+            // Сброс прогресса к улучшениям
+            killsToNextHp = 3;
+            killsToNextDamage = 5;
+            nextHpEl.textContent = killsToNextHp - kills;
+            nextDamageEl.textContent = killsToNextDamage - kills;
+            
+            // Эффект промаха
+            missEffectEl.style.left = (Math.random() * 300 + 100) + 'px';
+            missEffectEl.style.top = (Math.random() * 200 + 100) + 'px';
+            missEffectEl.style.opacity = '1';
+            missEffectEl.style.animation = 'none';
+            missEffectEl.offsetHeight;
+            missEffectEl.style.animation = 'miss-anim 1s';
+            
+            // Сброс комбо
+            combo = 0;
+            updateCombo();
+            
+            // Проверка на смерть
+            if (heroHp <= 0) {
+                gameOver();
+            }
+        }
+
+        // Обновление комбо
+        function updateCombo() {
+            comboCounterEl.textContent = `Комбо: ${combo}x`;
+            if (combo > 0) {
+                comboCounterEl.style.color = combo >= 5 ? 'gold' : 'white';
+                comboCounterEl.style.fontSize = combo >= 5 ? '28px' : '24px';
+            }
+        }
 
         // Создать нового врага
         function spawnEnemy() {
@@ -328,11 +446,39 @@
 
         // Атаковать врага
         function attack() {
-            if (isGameOver || !currentEnemy) return;
+            if (isGameOver) return;
+            
+            if (!currentEnemy) {
+                punishPlayer();
+                return;
+            }
 
-            // Проверка на крит
-            let isCrit = Math.random() < critChance;
+            // 5% шанс промаха
+            if (Math.random() < 0.05) {
+                heroHp -= 5;
+                heroHpEl.textContent = heroHp > 0 ? heroHp : 0;
+                heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
+                
+                missEffectEl.style.left = (Math.random() * 300 + 100) + 'px';
+                missEffectEl.style.top = (Math.random() * 200 + 100) + 'px';
+                missEffectEl.style.opacity = '1';
+                missEffectEl.style.animation = 'none';
+                missEffectEl.offsetHeight;
+                missEffectEl.style.animation = 'miss-anim 1s';
+                
+                if (heroHp <= 0) {
+                    gameOver();
+                }
+                return;
+            }
+
+            // Проверка на крит (шанс зависит от комбо)
+            const currentCritChance = critChance + (combo * 0.01);
+            let isCrit = Math.random() < currentCritChance;
             let totalDamage = isCrit ? Math.floor(baseDamage * critMultiplier) : baseDamage;
+
+            // Бонус урона за комбо
+            totalDamage += Math.floor(combo * 0.5);
 
             if (isCrit) {
                 showCritEffect();
@@ -341,6 +487,15 @@
             currentEnemy.hp -= totalDamage;
             enemyHpEl.textContent = currentEnemy.hp > 0 ? currentEnemy.hp : 0;
             enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
+
+            // Увеличение комбо
+            combo++;
+            updateCombo();
+            if (comboTimeout) clearTimeout(comboTimeout);
+            comboTimeout = setTimeout(() => {
+                combo = 0;
+                updateCombo();
+            }, 3000);
 
             // Сброс регенерации при ударе
             clearInterval(enemyRegenInterval);
@@ -370,6 +525,11 @@
                     heroHealthBar.style.width = '100%';
                     killsToNextHp += 3;
                     nextHpEl.textContent = killsToNextHp - kills;
+                    
+                    // Шанс запуска мини-игры
+                    if (Math.random() < 0.3) {
+                        startMiniGame();
+                    }
                 } else {
                     nextHpEl.textContent = killsToNextHp - kills;
                 }
@@ -393,9 +553,92 @@
             }
         }
 
+        // Мини-игра "Лови крошки"
+        function startMiniGame() {
+            if (miniGameActive) return;
+            
+            miniGameActive = true;
+            crumbsCaught = 0;
+            miniGameEl.style.display = 'block';
+            crumbsCaughtEl.textContent = '0';
+            timeLeftEl.textContent = '15';
+            miniGameAreaEl.innerHTML = '';
+            
+            let timeLeft = 15;
+            miniGameTimer = setInterval(() => {
+                timeLeft--;
+                timeLeftEl.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    endMiniGame();
+                }
+                
+                // Создание новой крошки каждую секунду
+                if (timeLeft > 0 && Math.random() < 0.7) {
+                    createCrumb();
+                }
+            }, 1000);
+            
+            // Первая крошка
+            createCrumb();
+        }
+        
+        function createCrumb() {
+            const crumb = document.createElement('div');
+            crumb.className = 'crumb';
+            crumb.style.left = Math.random() * 250 + 'px';
+            crumb.style.top = '0px';
+            miniGameAreaEl.appendChild(crumb);
+            
+            let fallSpeed = 2 + Math.random() * 3;
+            let fallInterval = setInterval(() => {
+                const currentTop = parseInt(crumb.style.top) || 0;
+                crumb.style.top = (currentTop + fallSpeed) + 'px';
+                
+                // Удаление если упала за пределы
+                if (currentTop > 300) {
+                    clearInterval(fallInterval);
+                    crumb.remove();
+                }
+            }, 50);
+            
+            crumb.addEventListener('click', () => {
+                crumbsCaught++;
+                crumbsCaughtEl.textContent = crumbsCaught;
+                crumb.remove();
+                clearInterval(fallInterval);
+                
+                if (crumbsCaught >= 10) {
+                    endMiniGame(true);
+                }
+            });
+        }
+        
+        function endMiniGame(success = false) {
+            clearInterval(miniGameTimer);
+            miniGameActive = false;
+            miniGameEl.style.display = 'none';
+            
+            if (success) {
+                crumbs += 5;
+                crumbsEl.textContent = crumbs;
+                
+                // Бонус за успешное прохождение
+                heroHp = Math.min(heroHp + 50, heroMaxHp);
+                heroHpEl.textContent = heroHp;
+                heroHealthBar.style.width = `${(heroHp / heroMaxHp) * 100}%`;
+                
+                baseDamage += 10;
+                damageEl.textContent = baseDamage;
+            }
+        }
+
         // Способность: Щит
         function useShield() {
-            if (shieldCooldown) return;
+            if (shieldCooldown || crumbs < 2) return;
+            
+            crumbs -= 2;
+            crumbsEl.textContent = crumbs;
             
             isShieldActive = true;
             shieldAbilityEl.classList.add('shield-active');
@@ -413,7 +656,10 @@
 
         // Способность: Яд
         function usePoison() {
-            if (poisonCooldown || !currentEnemy || currentEnemy.isPoisoned) return;
+            if (poisonCooldown || !currentEnemy || currentEnemy.isPoisoned || crumbs < 3) return;
+            
+            crumbs -= 3;
+            crumbsEl.textContent = crumbs;
             
             currentEnemy.isPoisoned = true;
             enemyEffectsEl.innerHTML = '<div class="poison-effect">☠️ ОТРАВЛЕН</div>';
@@ -427,7 +673,7 @@
                     return;
                 }
                 
-                currentEnemy.hp -= 3;
+                currentEnemy.hp -= 3 + Math.floor(combo * 0.5);
                 enemyHpEl.textContent = currentEnemy.hp > 0 ? currentEnemy.hp : 0;
                 enemyHealthBar.style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
                 
@@ -454,7 +700,7 @@
             critEffectEl.style.top = (Math.random() * 200 + 100) + 'px';
             critEffectEl.style.opacity = '1';
             critEffectEl.style.animation = 'none';
-            critEffectEl.offsetHeight; // Триггер рефлоу
+            critEffectEl.offsetHeight;
             critEffectEl.style.animation = 'crit-anim 1s';
         }
 
@@ -468,6 +714,7 @@
             clearInterval(enemyAttackInterval);
             clearInterval(enemyRegenInterval);
             if (poisonInterval) clearInterval(poisonInterval);
+            if (miniGameTimer) clearInterval(miniGameTimer);
         }
 
         // Назначение кнопок
